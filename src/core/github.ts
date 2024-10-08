@@ -5,6 +5,7 @@
 // private
 
 const __GITHUB_REQUEST_LIMIT = 60
+const __GITHUB_API_URL = 'https://api.github.com/'
 
 /**
  * __GithubHistoryItem - internal Github history item dataclass
@@ -30,6 +31,27 @@ class __GithubAPI {
   static _request_history: __GithubHistoryItem[] = []
 
   // private
+
+  /**
+   * __api_request() - abstract the Github API requests
+   * @param route - the API endpoint to request
+   * @returns - the API data
+   */
+  static async __api_request(route: string) {
+    console.log(`perform a Github API request at ${__GITHUB_API_URL}/${route}`)
+    const response = await fetch(`${__GITHUB_API_URL}/${route}`, {
+        method: 'GET',
+        headers: {
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      }
+    )
+    if (!response.ok) {
+      throw `Response status: ${response.status}`
+    }
+    console.log('success response !!')
+    return await response.json()
+  }
 
   /**
    *  __history_update() - remove outdated history entry
@@ -74,18 +96,23 @@ class __GithubAPI {
    * @param repo_uri - must be to the form '{owner}/{repo}'
    * @param since - must be the last scanned date (timestamp)
    */
-  static commit_scan(repo_uri: string, since: number) {
+  static async commit_scan(repo_uri: string, since_timestamp: number) {
     __GithubAPI.__history_allow_request('commits')
+    const since = new Date(since_timestamp).toISOString()
     console.log(
-      'request Github API for commit scanning for \n' +
-        `-- ${repo_uri}\n` +
-        `-- ${since}`
+      `request Github API for commit scanning for ${repo_uri} (${since})`
+    )
+    return await __GithubAPI.__api_request(
+      `/repos/${repo_uri}/commits?since=${since}`
     )
   }
 }
 
 // public
 
+/**
+ * GithubProject - abstract a Github project to watch
+ */
 export class GithubProject {
   repo_uri: string
   _last_commit_scan_timestamp: number
@@ -97,8 +124,18 @@ export class GithubProject {
 
   // public method
 
-  check_new_commit() {
+  async check_new_commit() {
     console.log(`request commit scanning for '${this.repo_uri}'`)
-    __GithubAPI.commit_scan(this.repo_uri, this._last_commit_scan_timestamp)
+    const commits = await __GithubAPI.commit_scan(
+      this.repo_uri,
+      this._last_commit_scan_timestamp
+    )
+    if (commits.length === 0)
+      return
+    console.log(`received commits = ${commits}`)
+    for (const commit of commits) {
+      console.log(`-- commit ${commit.sha}`)
+    }
+    this._last_commit_scan_timestamp = Date.now()
   }
 }

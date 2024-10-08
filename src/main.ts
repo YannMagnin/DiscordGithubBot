@@ -7,9 +7,9 @@ import { GithubProject } from './core/github'
 
 console.log('cc cmoa')
 
-const github_repo = new GithubProject('YannMagnin/FakeRepo')
+const github_repo = new GithubProject('YannMagnin/FakeCommit')
 
-watcher_add('test', 1, github_repo)
+watcher_add('test', 30, github_repo)
 console.log('waiting interruption')
 
 // now the program will never end until all watcher stop (which is not
