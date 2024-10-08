@@ -38,7 +38,8 @@ class __WatcherItem {
    * start() - start the timer
    */
   start() {
-    // (fixme) : check that _timer is not null
+    if (this._timer !== null)
+      throw `unable to start the watcher '${this.name}': timer already used`
     this._timer = setInterval(() => {
       console.log(`watcher need a refresh for "${this.name}"`)
       this.project.check_new_commit()

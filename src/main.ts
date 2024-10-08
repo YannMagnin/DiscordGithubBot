@@ -9,7 +9,7 @@ console.log('cc cmoa')
 
 const github_repo = new GithubProject('YannMagnin/FakeRepo')
 
-watcher_add('test', 60, github_repo)
+watcher_add('test', 1, github_repo)
 console.log('waiting interruption')
 
 // now the program will never end until all watcher stop (which is not
