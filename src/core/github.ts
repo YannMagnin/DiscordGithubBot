@@ -111,6 +111,22 @@ class __GithubAPI {
 // public
 
 /**
+ * GithubCommit - Github commit dataclass
+ */
+export class GithubCommit {
+  sha: string = ''
+  author: string = ''
+  author_icon: string = ''
+  project: string = ''
+  url: string = ''
+  body: string = ''
+  branch: string = ''
+  title: string = ''
+  verified: boolean = false
+  signed: boolean = false
+}
+
+/**
  * GithubProject - abstract a Github project to watch
  */
 export class GithubProject {

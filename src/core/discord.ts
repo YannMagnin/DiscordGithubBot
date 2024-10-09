@@ -2,12 +2,38 @@
 // core.discord - discord abstraction
 //---
 
-import { Client, Events, GatewayIntentBits, TextChannel } from 'discord.js';
+import {
+  Client,
+  Events,
+  GatewayIntentBits,
+  TextChannel,
+  EmbedBuilder
+} from 'discord.js';
+import type { GithubCommit } from './github';
+import { sleep } from 'bun';
 
 // internals
 
+// todo : maybe use Promise instead of undefined ?
 const __discord_client = new Client({ intents: [GatewayIntentBits.Guilds] });
 var __discord_general_channel: TextChannel|undefined = undefined
+
+/**
+ * __discord_get_channel() - workarond to wait the Discord channel
+ *
+ * This is a dirty workaround to wait until the Discord client is logged and
+ * that the bot channel is found. Also note that we should use `async` and
+ * `await sleep` to allow the VM to proper schedule pending operation.
+ *
+ * @returns - the bot Discord channel
+ */
+async function __discord_get_channel(): Promise<TextChannel> {
+  while (__discord_general_channel === undefined) {
+    console.log('waiting login...')
+    await sleep(1000)
+  }
+  return __discord_general_channel
+}
 
 // public
 
@@ -37,8 +63,33 @@ export function discord_init() {
       throw 'the general channel is not a text channel'
     console.log('channel general found !')
     __discord_general_channel = channel
-    __discord_general_channel.send('test message 2')
   })
   console.log(process.env.DISCORD_TOKEN)
   __discord_client.login(process.env.DISCORD_TOKEN);
+}
+
+/**
+ * discord_notification_commit() - send new commit notification
+ * @param commit - github commit information
+ */
+export async function discord_notification_commits(commits: GithubCommit[]) {
+  const embeds: EmbedBuilder[] = []
+  for (const commit of commits) {
+    const verified = commit.verified ? 'verified' : 'unverified'
+    const signed = commit.signed ? 'signed' : 'unsigned'
+    embeds.push(new EmbedBuilder()
+      .setColor(0x0099FF)
+      .setTitle(`[${commit.project}:${commit.branch}] ${commit.title}`)
+      .setAuthor({
+        name: commit.author,
+        iconURL: commit.author_icon,
+        url: commit.url
+      })
+      .setDescription(commit.body)
+      .setURL(commit.url)
+      .setFooter({text: `${commit.sha.substring(0,7)} - ${verified} - ${signed}`})
+      .setTimestamp()
+    )
+  }
+  (await __discord_get_channel()).send({ embeds: embeds })
 }
