@@ -46,22 +46,24 @@ async function __discord_get_channel(): Promise<TextChannel> {
  *
  * Note that the DISCORD_TOKEN env variable is automatically loaded from the
  * `.env` file by Bun
+ * 
+ * @param channel_name - channel name to target
  */
-export function discord_init() {
+export function discord_init(channel_name: string) {
   if (! ('DISCORD_TOKEN' in process.env))
     throw 'missing DISCORD_TOKEN env information'
   __discord_client.once(Events.ClientReady, readyClient => {
 	  console.log(`Ready! Logged in as ${readyClient.user.tag}`)
     const channel =  __discord_client.channels.cache.find(channel => {
       if ('name' in channel)
-        return channel.name === 'general'
+        return channel.name === channel_name
       return false
     })
     if (channel === undefined)
-      throw 'unable to find the general channel'
+      throw 'unable to find the target channel'
     if (! (channel instanceof TextChannel))
-      throw 'the general channel is not a text channel'
-    console.log('channel general found !')
+      throw 'the target channel is not a text channel'
+    console.log('target channel found !')
     __discord_general_channel = channel
   })
   console.log(process.env.DISCORD_TOKEN)
@@ -73,13 +75,15 @@ export function discord_init() {
  * @param commit - github commit information
  */
 export async function discord_notification_commits(commits: GithubCommit[]) {
+  if (commits.length == 0)
+    return
   const embeds: EmbedBuilder[] = []
   for (const commit of commits) {
     const verified = commit.verified ? 'verified' : 'unverified'
     const signed = commit.signed ? 'signed' : 'unsigned'
     embeds.push(new EmbedBuilder()
       .setColor(0x0099FF)
-      .setTitle(`[${commit.project}:${commit.branch}] ${commit.title}`)
+      .setTitle(`[${commit.project}] 1 new commit`)
       .setAuthor({
         name: commit.author,
         iconURL: commit.author_icon,

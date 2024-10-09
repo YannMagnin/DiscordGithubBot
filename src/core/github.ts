@@ -5,7 +5,13 @@
 // private
 
 const __GITHUB_REQUEST_LIMIT = 60
-const __GITHUB_API_URL = 'https://api.github.com/'
+const __GITHUB_API_URL = 'https://api.github.com'
+const __GITHUB_URL_REGEX = new RegExp(
+  `^${__GITHUB_API_URL}/` +
+  '(?<type>(repos|issues))/' +
+  '(?<owner>[a-zA-Z0-9_]+)/' +
+  '(?<project>[a-zA-Z0-9_]+)'
+)
 
 /**
  * __GithubHistoryItem - internal Github history item dataclass
@@ -121,7 +127,6 @@ export class GithubCommit {
   url: string = ''
   body: string = ''
   branch: string = ''
-  title: string = ''
   verified: boolean = false
   signed: boolean = false
 }
@@ -140,18 +145,38 @@ export class GithubProject {
 
   // public method
 
-  async check_new_commit() {
+  /**
+   * check_new_commits() - check new commit since a specific date
+   * @returns - a list of all new commits information
+   */
+  async check_new_commits(): Promise<GithubCommit[]> {
     console.log(`request commit scanning for '${this.repo_uri}'`)
     const commits = await __GithubAPI.commit_scan(
       this.repo_uri,
       this._last_commit_scan_timestamp
     )
-    if (commits.length === 0)
-      return
     console.log(`received commits = ${commits}`)
+    if (commits.length === 0)
+      return []
+    const gcommits: GithubCommit[] = []
     for (const commit of commits) {
-      console.log(`-- commit ${commit.sha}`)
+      console.log(`-- commit = ${commit}`)
+      const query = __GITHUB_URL_REGEX.exec(commit.commit.url)?.groups
+      if (query === undefined)
+        throw `unsupported github URL '${commit.commit.url}'`
+      const gcommit = new GithubCommit()
+      gcommit.author = commit.commit.author.name
+      gcommit.author_icon = commit.author.avatar_url
+      gcommit.body = commit.commit.message
+      gcommit.branch = 'master'
+      gcommit.project = `${query.owner}/${query.project}`
+      gcommit.sha = commit.sha
+      gcommit.signed = commit.commit.verification.signature !== ''
+      gcommit.verified = commit.commit.verification.verified
+      gcommit.url = commit.commit.url
+      gcommits.push(gcommit)
     }
     this._last_commit_scan_timestamp = Date.now()
+    return gcommits
   }
 }

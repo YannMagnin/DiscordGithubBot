@@ -2,6 +2,7 @@
 // core.watcher - timer abstraction
 //---
 
+import { discord_notification_commits } from './discord'
 import type { GithubProject } from './github'
 
 // Internals
@@ -40,9 +41,11 @@ class __WatcherItem {
   start() {
     if (this._timer !== null)
       throw `unable to start the watcher '${this.name}': timer already used`
-    this._timer = setInterval(() => {
+    this._timer = setInterval(async () => {
       console.log(`watcher need a refresh for "${this.name}"`)
-      this.project.check_new_commit()
+      const commits = await this.project.check_new_commits()
+      if (commits.length > 0)
+        discord_notification_commits(commits)
     }, this.scan_interval_sec * 500)
     console.log('watcher started')
   }
