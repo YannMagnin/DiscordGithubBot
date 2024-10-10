@@ -44,8 +44,7 @@ class __WatcherItem {
     this._timer = setInterval(async () => {
       console.log(`watcher need a refresh for "${this.name}"`)
       const commits = await this.project.check_new_commits()
-      if (commits.length > 0)
-        discord_notification_commits(commits)
+      if (commits.length > 0) discord_notification_commits(commits)
     }, this.scan_interval_sec * 500)
     console.log('watcher started')
   }

@@ -1,7 +1,11 @@
-# GithubBotGang
+# DiscordGithubBot
+
+TL;DR do not use it, it's a very specific Discord bot designed for my personal
+needs
 
 This is a small discord bot used to notify Github activities without using any
-webhook so we need to create a bot ad-hoc.
+webhook. I do not have access to the projects I want to follow and I also want
+to get notified only when people I know interact with these.
 
 ## Install
 
@@ -9,10 +13,15 @@ To install the project, you need to install [bun](bun.sh) and simply run:
 
 ```bash
 bun install
-bun run src/main.ts --help
+bun run --env-file=.your_env_file src/main.ts --help
 ```
 
-## Project setup
+Note that you need to provide your own bot secret token through the environment
+variable `DISCORD_TOKEN`.
+
+## Developement setup
+
+You need to install:
 
 - `bun.sh (1.1.x)` : javascript runtime
 - `vscode (x.x.x)` : code editor
@@ -21,8 +30,7 @@ bun run src/main.ts --help
 - `[vscode] ESlint` : for strict Javascript linter
 
 Normally, the workspace configuration is included in the code base, but if you
-need to configure it manually, only `Prettier` to force code format at each save
-and the tab size. To do so, you need to:
+need to configure it manually, you need to:
 
 1. go to the `File -> Preference -> Settings` and select `Workspace`
 2. search for `format on save` and enable it

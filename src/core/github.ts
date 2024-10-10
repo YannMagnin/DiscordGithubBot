@@ -8,9 +8,9 @@ const __GITHUB_REQUEST_LIMIT = 60
 const __GITHUB_API_URL = 'https://api.github.com'
 const __GITHUB_URL_REGEX = new RegExp(
   `^${__GITHUB_API_URL}/` +
-  '(?<type>(repos|issues))/' +
-  '(?<owner>[a-zA-Z0-9_]+)/' +
-  '(?<project>[a-zA-Z0-9_]+)'
+    '(?<type>(repos|issues))/' +
+    '(?<owner>[a-zA-Z0-9_]+)/' +
+    '(?<project>[a-zA-Z0-9_]+)'
 )
 
 /**
@@ -46,12 +46,11 @@ class __GithubAPI {
   static async __api_request(route: string) {
     console.log(`perform a Github API request at ${__GITHUB_API_URL}/${route}`)
     const response = await fetch(`${__GITHUB_API_URL}/${route}`, {
-        method: 'GET',
-        headers: {
-          'X-GitHub-Api-Version': '2022-11-28'
-        }
-      }
-    )
+      method: 'GET',
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    })
     if (!response.ok) {
       throw `Response status: ${response.status}`
     }
@@ -65,8 +64,7 @@ class __GithubAPI {
   static __history_update() {
     const current_timestamp = Date.now()
     for (const item of __GithubAPI._request_history) {
-      if (((current_timestamp - item.timestamp) / 1000 / 60) < 60)
-        continue
+      if ((current_timestamp - item.timestamp) / 1000 / 60 < 60) continue
       console.log(`[history] remove outdated ${item.target}`)
       __GithubAPI._request_history.splice(
         __GithubAPI._request_history.indexOf(item)
@@ -156,8 +154,7 @@ export class GithubProject {
       this._last_commit_scan_timestamp
     )
     console.log(`received commits = ${commits}`)
-    if (commits.length === 0)
-      return []
+    if (commits.length === 0) return []
     const gcommits: GithubCommit[] = []
     for (const commit of commits) {
       console.log(`-- commit = ${commit}`)
