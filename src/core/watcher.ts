@@ -4,6 +4,7 @@
 
 import { discord_notification_commits } from './discord'
 import { GithubProject } from './github'
+import { CONFIG_PREFIX } from './config'
 
 // Internals
 
@@ -47,9 +48,41 @@ class __WatcherItem {
       if (commits.length > 0) discord_notification_commits(commits)
     }, this.scan_interval_min * 60 * 1000)
   }
+
+  /**
+   * stop() - stop the watcher and export information
+   * @returns - watcher information
+   */
+  stop() {
+    var status = 'stopped'
+    if (this._timer !== null) {
+      status = 'running'
+      clearInterval(this._timer)
+      this._timer = null
+    }
+    return {
+      api: 'github',
+      project: this.project.repo_uri,
+      scan_interval_min: this.scan_interval_min,
+      last_commit_scan_timestamp: this.project._last_commit_scan_timestamp,
+      status: status,
+    }
+  }
 }
 
 // Public
+
+/**
+ * watcher_init() - load the configuration file and start all watchers
+ * @param config_path - configuration file path
+ */
+export async function watcher_init() {
+  const config_file = Bun.file(`${CONFIG_PREFIX}/config.json`)
+  const config_info = await config_file.json()
+  for (const project of config_info.watchers) {
+    watcher_add(project.project, project, config_info.committer_aliases)
+  }
+}
 
 /**
  * watcher_add() - add a new watcher
@@ -71,4 +104,20 @@ export function watcher_add(
     new GithubProject(project.project)
   )
   __watcher_dict[name].start()
+}
+
+/**
+ * watcher_unint() - stop all watcher and export information
+ */
+export function watcher_unint() {
+  const watcher_exports = []
+  for (const watcher in __watcher_dict) {
+    console.log(`[+] stopping watcher ${watcher}`)
+    watcher_exports.push(__watcher_dict[watcher].stop())
+  }
+  if (watcher_exports.length === 0) return
+  Bun.write(
+    `${CONFIG_PREFIX}/config.lock.json`,
+    JSON.stringify(watcher_exports)
+  )
 }

@@ -2,18 +2,18 @@
 // main	- main entry of the bot
 //---
 
-import { discord_init } from './core/discord'
-import { watcher_add } from './core/watcher'
+import { discord_init, discord_uninit } from './core/discord'
+import { watcher_init, watcher_unint } from './core/watcher'
 
-console.log('cc cmoa')
+console.log('-== start ==-')
 
-discord_init('github-tracking')
+discord_init()
+watcher_init()
 
-const config_file = Bun.file('.discordgithubbot/config.json')
-const config_info = await config_file.json()
-for (const project of config_info.watchers) {
-  watcher_add(project.project, project, config_info.committer_aliases)
-}
+process.on('SIGINT', () => {
+  watcher_unint()
+  discord_uninit()
+  process.exit(0)
+})
 
-// now the program will never end until all watcher stop (which is not
-// implemented for now)
+// now the program will never end until a process kill occur
