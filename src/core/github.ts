@@ -136,8 +136,8 @@ export class GithubProject {
   repo_uri: string
   _last_commit_scan_timestamp: number
 
-  constructor(name: string) {
-    this.repo_uri = name
+  constructor(uri: string) {
+    this.repo_uri = uri
     this._last_commit_scan_timestamp = Date.now()
   }
 

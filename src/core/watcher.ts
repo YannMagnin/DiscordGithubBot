@@ -3,7 +3,7 @@
 //---
 
 import { discord_notification_commits } from './discord'
-import type { GithubProject } from './github'
+import { GithubProject } from './github'
 
 // Internals
 
@@ -23,12 +23,12 @@ var __watcher_dict: { [id: string]: __WatcherItem } = {}
 class __WatcherItem {
   name: string
   project: GithubProject
-  scan_interval_sec: number
+  scan_interval_min: number
   _timer: Timer | null
 
-  constructor(name: string, scan_interval_sec: number, project: GithubProject) {
+  constructor(name: string, scan_interval_min: number, project: GithubProject) {
     this.name = name
-    this.scan_interval_sec = scan_interval_sec
+    this.scan_interval_min = scan_interval_min
     this.project = project
     this._timer = null
   }
@@ -45,8 +45,7 @@ class __WatcherItem {
       console.log(`watcher need a refresh for "${this.name}"`)
       const commits = await this.project.check_new_commits()
       if (commits.length > 0) discord_notification_commits(commits)
-    }, this.scan_interval_sec * 500)
-    console.log('watcher started')
+    }, this.scan_interval_min * 60 * 1000)
   }
 }
 
@@ -60,12 +59,16 @@ class __WatcherItem {
  */
 export function watcher_add(
   name: string,
-  scan_interval_sec: number,
-  project: GithubProject
+  project: any,
+  committer_aliases: any[]
 ) {
   if (name in __watcher_dict)
     throw `unable to add the new watcher "${name}": already registered`
-  __watcher_dict[name] = new __WatcherItem(name, scan_interval_sec, project)
+  console.log(`[+] register a new github watcher : ${name}`)
+  __watcher_dict[name] = new __WatcherItem(
+    name,
+    project.scan_interval_min,
+    new GithubProject(project.project)
+  )
   __watcher_dict[name].start()
-  console.log('new watcher object added')
 }
