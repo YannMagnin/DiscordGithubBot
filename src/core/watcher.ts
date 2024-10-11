@@ -2,7 +2,11 @@
 // core.watcher - timer abstraction
 //---
 
-import { discord_notification_commits } from './discord'
+import { EmbedBuilder } from 'discord.js'
+import {
+  discord_notification_commits,
+  discord_notification_send,
+} from './discord'
 import { GithubProject } from './github'
 import { CONFIG_PREFIX } from './config'
 
@@ -70,6 +74,49 @@ class __WatcherItem {
   }
 }
 
+/**
+ * __watcher_emit_warning() - generate the warning message
+ *
+ * Note: Discord poorly handle nested list and require
+ *
+ * @param warnings - internal warning object
+ */
+export function __watcher_emit_warning(warnings: any) {
+  var new_watchers = ''
+  var workarond = '    '
+  for (const watcher of warnings.new_watcher) {
+    new_watchers += `- **[${watcher.project}](https://google.fr)**\n`
+    for (const prop in watcher) {
+      if (prop === 'project') continue
+      new_watchers += `${workarond}- **${prop}**: \`${watcher[prop]}\`\n`
+      workarond = '   '
+    }
+  }
+  var diff_watchers = ''
+  var workarond = '    '
+  for (const watcher in warnings.lock_diff) {
+    diff_watchers += `- **${watcher}**\n`
+    for (const prop in warnings.lock_diff[watcher]) {
+      diff_watchers += `${workarond}- **${prop}**: `
+      diff_watchers += `\`${warnings.lock_diff[watcher][prop][1]}\` ⇒`
+      diff_watchers += `\`${warnings.lock_diff[watcher][prop][0]}\`\n`
+      workarond = '   '
+    }
+  }
+  if (new_watchers === '' && diff_watchers === '') return
+  console.log('-- lock file updated')
+  const embed = new EmbedBuilder()
+    .setColor(0xc75820)
+    .setTitle('Configuration update')
+    .setDescription('Update the configuration lock file')
+    .setAuthor({ name: 'GithubBotApp' })
+  if (new_watchers)
+    embed.addFields({ name: 'New watchers', value: new_watchers })
+  if (diff_watchers)
+    embed.addFields({ name: 'Update watchers', value: diff_watchers })
+  discord_notification_send([embed])
+}
+
 // Public
 
 /**
@@ -77,11 +124,37 @@ class __WatcherItem {
  * @param config_path - configuration file path
  */
 export async function watcher_init() {
-  const config_file = Bun.file(`${CONFIG_PREFIX}/config.json`)
-  const config_info = await config_file.json()
-  for (const project of config_info.watchers) {
-    watcher_add(project.project, project, config_info.committer_aliases)
+  const warning_report: { new_watcher: any[]; lock_diff: any } = {
+    new_watcher: [],
+    lock_diff: {},
   }
+  const config_file = Bun.file(`${CONFIG_PREFIX}/config.json`)
+  if (!(await config_file.exists()))
+    throw `missing the configuration file "${CONFIG_PREFIX}/config.json"`
+  const config_info = await config_file.json()
+  const lock_file = Bun.file(`${CONFIG_PREFIX}/config.lock.json`)
+  const lock_info = (await lock_file.exists()) ? await lock_file.json() : {}
+  for (const project of config_info.watchers) {
+    if (!(project.project in lock_info)) {
+      watcher_add(project)
+      warning_report.new_watcher.push(project)
+      continue
+    }
+    const lock_project = lock_info[project.project]
+    for (const property of ['api', 'scan_interval_min']) {
+      if (project[property] !== lock_project[property]) {
+        if (!(project.project in warning_report.lock_diff))
+          warning_report.lock_diff[project.project] = {}
+        warning_report.lock_diff[project.project][property] = [
+          project[property],
+          lock_project[property],
+        ]
+        lock_project[property] = project[property]
+      }
+    }
+    watcher_add(lock_project)
+  }
+  __watcher_emit_warning(warning_report)
 }
 
 /**
@@ -90,32 +163,28 @@ export async function watcher_init() {
  * @param scan_interval_sec scanning interval in seconds
  * @param project github project to scan
  */
-export function watcher_add(
-  name: string,
-  project: any,
-  committer_aliases: any[]
-) {
-  if (name in __watcher_dict)
-    throw `unable to add the new watcher "${name}": already registered`
-  console.log(`[+] register a new github watcher : ${name}`)
-  __watcher_dict[name] = new __WatcherItem(
-    name,
+export function watcher_add(project: any) {
+  if (project.project in __watcher_dict)
+    throw `unable to add the new watcher "${project.project}": already registered`
+  console.log(`[+] register a new github watcher : ${project.project}`)
+  __watcher_dict[project.project] = new __WatcherItem(
+    project.project,
     project.scan_interval_min,
     new GithubProject(project.project)
   )
-  __watcher_dict[name].start()
+  __watcher_dict[project.project].start()
 }
 
 /**
  * watcher_unint() - stop all watcher and export information
  */
 export function watcher_unint() {
-  const watcher_exports = []
+  const watcher_exports: { [id: string]: any } = {}
   for (const watcher in __watcher_dict) {
     console.log(`[+] stopping watcher ${watcher}`)
-    watcher_exports.push(__watcher_dict[watcher].stop())
+    watcher_exports[watcher] = __watcher_dict[watcher].stop()
   }
-  if (watcher_exports.length === 0) return
+  if (Object.keys(watcher_exports).length === 0) return
   Bun.write(
     `${CONFIG_PREFIX}/config.lock.json`,
     JSON.stringify(watcher_exports)

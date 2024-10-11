@@ -99,6 +99,14 @@ export async function discord_notification_commits(commits: GithubCommit[]) {
 }
 
 /**
+ * discord_notification_send() - send embeds messages
+ * @param embeds - discord.js embeds list
+ */
+export async function discord_notification_send(embeds: EmbedBuilder[]) {
+  ;(await __discord_get_channel()).send({ embeds: embeds })
+}
+
+/**
  * discord_uninit() - invoked rigth before the process is killed
  */
 export function discord_uninit() {
