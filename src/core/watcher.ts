@@ -7,7 +7,7 @@ import {
   discord_notification_commits,
   discord_notification_send,
 } from './discord'
-import { GithubProject } from './github'
+import { github_generate_url, GithubProject } from './github'
 import { config_get_prefix } from './config'
 
 // Internals
@@ -85,7 +85,8 @@ export function __watcher_emit_warning(warnings: any) {
   var new_watchers = ''
   var workarond = '    '
   for (const watcher of warnings.new_watcher) {
-    new_watchers += `- **[${watcher.project}](https://google.fr)**\n`
+    const project_url = github_generate_url(watcher.project)
+    new_watchers += `- **[${watcher.project}](${project_url})**\n`
     for (const prop in watcher) {
       if (prop === 'project') continue
       new_watchers += `${workarond}- **${prop}**: \`${watcher[prop]}\`\n`
@@ -129,11 +130,11 @@ export async function watcher_init() {
     new_watcher: [],
     lock_diff: {},
   }
-  const config_file = Bun.file(`${config_prefix}/config.json`)
+  const config_file = Bun.file(`${config_prefix}/watchers.json`)
   if (!(await config_file.exists()))
-    throw `missing the configuration file "${config_prefix}/config.json"`
+    throw `missing the configuration file "${config_prefix}/watchers.json"`
   const config_info = await config_file.json()
-  const lock_file = Bun.file(`${config_prefix}/config.lock.json`)
+  const lock_file = Bun.file(`${config_prefix}/watchers.lock.json`)
   const lock_info = (await lock_file.exists()) ? await lock_file.json() : {}
   for (const project of config_info.watchers) {
     if (!(project.project in lock_info)) {
@@ -188,7 +189,7 @@ export function watcher_unint() {
   }
   if (Object.keys(watcher_exports).length === 0) return
   Bun.write(
-    `${config_prefix}/config.lock.json`,
+    `${config_prefix}/watchers.lock.json`,
     JSON.stringify(watcher_exports)
   )
 }

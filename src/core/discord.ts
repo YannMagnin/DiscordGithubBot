@@ -11,7 +11,7 @@ import {
 } from 'discord.js'
 import type { GithubCommit } from './github'
 import { sleep } from 'bun'
-import { config_get_discord_channel } from './config'
+import { config_get_discord_channel, config_get_discord_token } from './config'
 
 // internals
 
@@ -51,8 +51,6 @@ async function __discord_get_channel(): Promise<TextChannel> {
  * @param channel_name - channel name to target
  */
 export function discord_init() {
-  if (!('DISCORD_TOKEN' in process.env))
-    throw 'missing DISCORD_TOKEN env information'
   const config_discord_channel = config_get_discord_channel()
   __discord_client.once(Events.ClientReady, (readyClient) => {
     console.log(`Ready! Logged in as ${readyClient.user.tag}`)
@@ -66,7 +64,7 @@ export function discord_init() {
     console.log('target channel found !')
     __discord_general_channel = channel
   })
-  __discord_client.login(process.env.DISCORD_TOKEN)
+  __discord_client.login(config_get_discord_token())
 }
 
 /**

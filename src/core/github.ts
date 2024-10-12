@@ -177,3 +177,10 @@ export class GithubProject {
     return gcommits
   }
 }
+
+/**
+ *
+ */
+export function github_generate_url(uri: string) {
+  return `https://github.com/${uri}`
+}
