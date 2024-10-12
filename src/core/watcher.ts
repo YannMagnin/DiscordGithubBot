@@ -8,7 +8,7 @@ import {
   discord_notification_send,
 } from './discord'
 import { GithubProject } from './github'
-import { CONFIG_PREFIX } from './config'
+import { config_get_prefix } from './config'
 
 // Internals
 
@@ -124,15 +124,16 @@ export function __watcher_emit_warning(warnings: any) {
  * @param config_path - configuration file path
  */
 export async function watcher_init() {
+  const config_prefix = config_get_prefix()
   const warning_report: { new_watcher: any[]; lock_diff: any } = {
     new_watcher: [],
     lock_diff: {},
   }
-  const config_file = Bun.file(`${CONFIG_PREFIX}/config.json`)
+  const config_file = Bun.file(`${config_prefix}/config.json`)
   if (!(await config_file.exists()))
-    throw `missing the configuration file "${CONFIG_PREFIX}/config.json"`
+    throw `missing the configuration file "${config_prefix}/config.json"`
   const config_info = await config_file.json()
-  const lock_file = Bun.file(`${CONFIG_PREFIX}/config.lock.json`)
+  const lock_file = Bun.file(`${config_prefix}/config.lock.json`)
   const lock_info = (await lock_file.exists()) ? await lock_file.json() : {}
   for (const project of config_info.watchers) {
     if (!(project.project in lock_info)) {
@@ -179,6 +180,7 @@ export function watcher_add(project: any) {
  * watcher_unint() - stop all watcher and export information
  */
 export function watcher_unint() {
+  const config_prefix = config_get_prefix()
   const watcher_exports: { [id: string]: any } = {}
   for (const watcher in __watcher_dict) {
     console.log(`[+] stopping watcher ${watcher}`)
@@ -186,7 +188,7 @@ export function watcher_unint() {
   }
   if (Object.keys(watcher_exports).length === 0) return
   Bun.write(
-    `${CONFIG_PREFIX}/config.lock.json`,
+    `${config_prefix}/config.lock.json`,
     JSON.stringify(watcher_exports)
   )
 }

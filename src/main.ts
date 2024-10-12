@@ -4,9 +4,9 @@
 
 import { discord_init, discord_uninit } from './core/discord'
 import { watcher_init, watcher_unint } from './core/watcher'
+import { config_init } from './core/config'
 
-console.log('-== start ==-')
-
+config_init()
 discord_init()
 watcher_init()
 
