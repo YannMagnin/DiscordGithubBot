@@ -13,11 +13,35 @@ To install the project, you need to install [bun](bun.sh) and simply run:
 
 ```bash
 bun install
-bun run --env-file=.your_env_file src/main.ts --help
+bun run src/main.ts --help
+bun run src/main.ts configuration/folder/path
 ```
 
-Note that you need to provide your own bot secret token through the environment
-variable `DISCORD_TOKEN`.
+Note that you need to provide the configuration folder which must contains at
+least two files:
+
+1. `config.toml`
+
+```toml
+[discord]
+token = 'your secret token'
+channel = 'channel name'
+```
+
+2. `watchers.json`
+
+```json
+{
+  "watchers": [
+    {
+      "api": "github",
+      "project": "<owner>/<project>",
+      "scan_interval_min": <scan interval>
+    },
+    ...
+  ]
+}
+```
 
 ## Developement setup
 

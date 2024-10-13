@@ -89,7 +89,9 @@ export async function discord_notification_commits(commits: GithubCommit[]) {
         .setDescription(commit.body)
         .setURL(commit.url)
         .setFooter({
-          text: `${commit.sha.substring(0, 7)} - ${verified} - ${signed}`,
+          text: `${commit.sha.substring(0, 7)} - ${verified} - ${signed} - ${
+            commit.date
+          }`,
         })
         .setTimestamp()
     )

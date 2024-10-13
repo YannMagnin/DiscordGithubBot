@@ -68,7 +68,7 @@ class __WatcherItem {
       api: 'github',
       project: this.project.repo_uri,
       scan_interval_min: this.scan_interval_min,
-      last_commit_scan_timestamp: this.project._last_commit_scan_timestamp,
+      last_commit_scan_timestamp: this.project.last_commit_scan_timestamp,
       status: status,
     }
   }
@@ -81,7 +81,7 @@ class __WatcherItem {
  *
  * @param warnings - internal warning object
  */
-export function __watcher_emit_warning(warnings: any) {
+function __watcher_emit_warning(warnings: any) {
   var new_watchers = ''
   var workarond = '    '
   for (const watcher of warnings.new_watcher) {
@@ -96,7 +96,8 @@ export function __watcher_emit_warning(warnings: any) {
   var diff_watchers = ''
   var workarond = '    '
   for (const watcher in warnings.lock_diff) {
-    diff_watchers += `- **${watcher}**\n`
+    const project_url = github_generate_url(watcher)
+    diff_watchers += `- **[${watcher}](${project_url})**\n`
     for (const prop in warnings.lock_diff[watcher]) {
       diff_watchers += `${workarond}- **${prop}**: `
       diff_watchers += `\`${warnings.lock_diff[watcher][prop][1]}\` ⇒`
@@ -137,11 +138,13 @@ export async function watcher_init() {
   const lock_file = Bun.file(`${config_prefix}/watchers.lock.json`)
   const lock_info = (await lock_file.exists()) ? await lock_file.json() : {}
   for (const project of config_info.watchers) {
+    console.log(`[+] register a new github watcher : ${project.project}`)
     if (!(project.project in lock_info)) {
       watcher_add(project)
       warning_report.new_watcher.push(project)
       continue
     }
+    console.log('-- load project from the lock file')
     const lock_project = lock_info[project.project]
     for (const property of ['api', 'scan_interval_min']) {
       if (project[property] !== lock_project[property]) {
@@ -168,11 +171,15 @@ export async function watcher_init() {
 export function watcher_add(project: any) {
   if (project.project in __watcher_dict)
     throw `unable to add the new watcher "${project.project}": already registered`
-  console.log(`[+] register a new github watcher : ${project.project}`)
+  var last_commit_scan_timestamp = project.last_commit_scan_timestamp
+  if (last_commit_scan_timestamp === undefined) {
+    console.log('-- use the current date as `last_commit_scan_timestamp`')
+    last_commit_scan_timestamp = Date.now()
+  }
   __watcher_dict[project.project] = new __WatcherItem(
     project.project,
     project.scan_interval_min,
-    new GithubProject(project.project)
+    new GithubProject(project.project, last_commit_scan_timestamp)
   )
   __watcher_dict[project.project].start()
 }

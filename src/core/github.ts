@@ -127,6 +127,7 @@ export class GithubCommit {
   branch: string = ''
   verified: boolean = false
   signed: boolean = false
+  date: string = ''
 }
 
 /**
@@ -134,11 +135,11 @@ export class GithubCommit {
  */
 export class GithubProject {
   repo_uri: string
-  _last_commit_scan_timestamp: number
+  last_commit_scan_timestamp: number
 
-  constructor(uri: string) {
+  constructor(uri: string, last_commit_scan_timestamp: number) {
     this.repo_uri = uri
-    this._last_commit_scan_timestamp = Date.now()
+    this.last_commit_scan_timestamp = last_commit_scan_timestamp
   }
 
   // public method
@@ -151,7 +152,7 @@ export class GithubProject {
     console.log(`request commit scanning for '${this.repo_uri}'`)
     const commits = await __GithubAPI.commit_scan(
       this.repo_uri,
-      this._last_commit_scan_timestamp
+      this.last_commit_scan_timestamp
     )
     console.log(`received commits = ${commits}`)
     if (commits.length === 0) return []
@@ -171,9 +172,12 @@ export class GithubProject {
       gcommit.signed = commit.commit.verification.signature !== ''
       gcommit.verified = commit.commit.verification.verified
       gcommit.url = commit.commit.url
+      gcommit.date = commit.commit.author.date
+        .substring(0, 10)
+        .replaceAll('-', '/')
       gcommits.push(gcommit)
     }
-    this._last_commit_scan_timestamp = Date.now()
+    this.last_commit_scan_timestamp = Date.now()
     return gcommits
   }
 }
