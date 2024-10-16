@@ -10,31 +10,7 @@ import { parse as toml_parse } from '@iarna/toml'
 /**
  * __CONFIG_INFO - loaded configuration information
  */
-var __CONFIG_INFO: any | undefined = undefined
-
-/**
- * __config_load() - try to load the main configuration file
- * @param prefix - configuration file prefix path
- */
-function __config_load(prefix: string) {
-  if (!existsSync(prefix)) throw `config prefix provided does not exits`
-  if (!existsSync(`${prefix}/config.toml`))
-    throw `missing the \`configuration.toml\` file in the provided prefix`
-  const config: any = toml_parse(
-    readFileSync(`${prefix}/config.toml`, { encoding: 'utf8' })
-  )
-  if (!('discord' in config))
-    throw 'missing the critical discord configuration section'
-  for (const prop of ['token', 'channel', 'server']) {
-    if (!(prop in config.discord))
-      throw `missing critical \`${prop}\` property in the configuration file`
-  }
-  __CONFIG_INFO = {
-    prefix: prefix,
-    'discord-token': config.discord.token,
-    'discord-channel': config.discord.channel,
-  }
-}
+var __CONFIG_INFO: { prefix: string; raw: any }
 
 // Public
 
@@ -53,11 +29,17 @@ export function config_init() {
       )
       process.exit(0)
     }
-    if (config_prefix === undefined) {
-      __config_load(arg)
-      continue
+    if (config_prefix !== undefined) throw `unsupported CLI argument '${arg}'`
+    if (!existsSync(arg)) throw `config prefix provided does not exits`
+    if (!existsSync(`${arg}/config.toml`))
+      throw `missing the \`configuration.toml\` file in the provided prefix`
+    const config: any = toml_parse(
+      readFileSync(`${arg}/config.toml`, { encoding: 'utf8' })
+    )
+    __CONFIG_INFO = {
+      prefix: arg,
+      raw: config,
     }
-    throw `unsupported CLI argument '${arg}'`
   }
   if (__CONFIG_INFO === undefined) throw 'missing configuration prefix'
 }
@@ -71,25 +53,9 @@ export function config_get_prefix(): string {
 }
 
 /**
- * config_get_discord_channel() - return the discord channel
- * @returns - the discord channel to send message
+ * config_get_raw() - return the user configuration
+ * @returns - the raw loaded user configuration file information
  */
-export function config_get_discord_channel(): string {
-  return __CONFIG_INFO['discord-channel']
-}
-
-/**
- * config_get_discord_token() - return the discord private token
- * @returns - the discord private token to communicate with the API
- */
-export function config_get_discord_token(): string {
-  return __CONFIG_INFO['discord-token']
-}
-
-/**
- * config_get_discord_token() - return the discord server name to operate
- * @returns - the discord server name
- */
-export function config_get_discord_server(): string {
-  return __CONFIG_INFO['discord-server']
+export function config_get_raw(): any {
+  return __CONFIG_INFO.raw
 }

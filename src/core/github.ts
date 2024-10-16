@@ -2,6 +2,8 @@
 // core.github  - github abstraction
 //---
 
+import { config_get_raw } from './config'
+
 // private
 
 const __GITHUB_REQUEST_LIMIT = 60
@@ -35,6 +37,7 @@ class __GithubHistoryItem {
  */
 class __GithubAPI {
   static _request_history: __GithubHistoryItem[] = []
+  static _api_token: string = ''
 
   // private
 
@@ -48,6 +51,7 @@ class __GithubAPI {
     const response = await fetch(`${__GITHUB_API_URL}/${route}`, {
       method: 'GET',
       headers: {
+        Authorization: `Bearer ${__GithubAPI._api_token}`,
         'X-GitHub-Api-Version': '2022-11-28',
       },
     })
@@ -173,8 +177,9 @@ export class GithubProject {
       gcommit.verified = commit.commit.verification.verified
       gcommit.url = commit.commit.url
       gcommit.date = commit.commit.author.date
-        .substring(0, 10)
+        .substring(0, 19)
         .replaceAll('-', '/')
+        .replaceAll('T', ' ')
       gcommits.push(gcommit)
     }
     this.last_commit_scan_timestamp = Date.now()
@@ -183,8 +188,23 @@ export class GithubProject {
 }
 
 /**
- *
+ * github_init() - initialise github internals
  */
-export function github_generate_url(uri: string) {
+export function github_init() {
+  const config = config_get_raw()
+  if (!('github' in config))
+    throw 'missing the critical github configuration section'
+  for (const prop of ['token']) {
+    if (!(prop in config.github))
+      throw `missing critical \`${prop}\` property in the configuration file`
+  }
+  __GithubAPI._api_token = config.github.token
+}
+
+/**
+ * github_generate_url() - generate the project URL
+ * @returns - the prolect URL
+ */
+export function github_generate_url(uri: string): string {
   return `https://github.com/${uri}`
 }

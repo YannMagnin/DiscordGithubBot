@@ -11,11 +11,7 @@ import {
 } from 'discord.js'
 import type { GithubCommit } from './github'
 import { sleep } from 'bun'
-import {
-  config_get_discord_channel,
-  config_get_discord_token,
-  config_get_discord_server,
-} from './config'
+import { config_get_raw } from './config'
 
 // internals
 
@@ -52,28 +48,33 @@ async function __discord_get_channel(): Promise<TextChannel> {
  * @param channel_name - channel name to target
  */
 export function discord_init() {
+  const config = config_get_raw()
+  if (!('discord' in config))
+    throw '[discord] missing the critical discord configuration section'
+  for (const prop of ['token', 'channel', 'server']) {
+    if (!(prop in config.discord))
+      throw `[discord] missing critical \`${prop}\` property in the configuration file`
+  }
   __discord_client.once(Events.ClientReady, (readyClient) => {
-    console.log(`Ready! Logged in as ${readyClient.user.tag}`)
-    const config_discord_server_name = config_get_discord_server()
+    console.log(`[discord] Ready! Logged in as ${readyClient.user.tag}`)
     const discord_server = readyClient.guilds.cache.find((guild) => {
-      return guild.name !== config_discord_server_name
+      return guild.name === config.discord.server
     })
     if (discord_server === undefined)
-      throw `[discord] unable to find the server ${config_discord_server_name}'`
-    console.log(`[discord/init] server "${discord_server.name}" found !`)
-    const config_discord_channel = config_get_discord_channel()
+      throw `[discord] unable to find the server ${config.discord.server}'`
+    console.log(`[discord] server "${discord_server.name}" found !`)
     const channel = discord_server.channels.cache.find((channel) => {
-      if ('name' in channel) return channel.name === config_discord_channel
+      if ('name' in channel) return channel.name === config.discord.channel
       return false
     })
     if (channel === undefined)
-      throw `[discord/init] unable to find the channel "${config_discord_channel}"`
+      throw `[discord] unable to find the channel "${config.discord.channel}"`
     if (!(channel instanceof TextChannel))
-      throw `[discord/init] the channel "${config_discord_channel}" is not a text channel`
-    console.log(`[discord/init] channel "${config_discord_channel}" found !`)
+      throw `[discord] the channel "${channel.name}" is not a text channel`
+    console.log(`[discord] channel "${channel.name}" found !`)
     __discord_general_channel = channel
   })
-  __discord_client.login(config_get_discord_token())
+  __discord_client.login(config.discord.token)
 }
 
 /**
@@ -98,11 +99,10 @@ export async function discord_notification_commits(commits: GithubCommit[]) {
         .setDescription(commit.body)
         .setURL(commit.url)
         .setFooter({
-          text: `${commit.sha.substring(0, 7)} - ${verified} - ${signed} - ${
+          text: `${commit.sha.substring(0, 7)} • ${verified} • ${signed} • ${
             commit.date
           }`,
         })
-        .setTimestamp()
     )
   }
   ;(await __discord_get_channel()).send({ embeds: embeds })
