@@ -25,7 +25,7 @@ function __config_load(prefix: string) {
   )
   if (!('discord' in config))
     throw 'missing the critical discord configuration section'
-  for (const prop of ['token', 'channel']) {
+  for (const prop of ['token', 'channel', 'server']) {
     if (!(prop in config.discord))
       throw `missing critical \`${prop}\` property in the configuration file`
   }
@@ -84,4 +84,12 @@ export function config_get_discord_channel(): string {
  */
 export function config_get_discord_token(): string {
   return __CONFIG_INFO['discord-token']
+}
+
+/**
+ * config_get_discord_token() - return the discord server name to operate
+ * @returns - the discord server name
+ */
+export function config_get_discord_server(): string {
+  return __CONFIG_INFO['discord-server']
 }

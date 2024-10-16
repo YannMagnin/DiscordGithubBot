@@ -11,7 +11,11 @@ import {
 } from 'discord.js'
 import type { GithubCommit } from './github'
 import { sleep } from 'bun'
-import { config_get_discord_channel, config_get_discord_token } from './config'
+import {
+  config_get_discord_channel,
+  config_get_discord_token,
+  config_get_discord_server,
+} from './config'
 
 // internals
 
@@ -45,23 +49,28 @@ async function __discord_get_channel(): Promise<TextChannel> {
  * abstraction stuff for the bridge between the core and the service and then
  * open a connection with the bot
  *
- * Note that the DISCORD_TOKEN env variable is automatically loaded from the
- * `.env` file by Bun
- *
  * @param channel_name - channel name to target
  */
 export function discord_init() {
-  const config_discord_channel = config_get_discord_channel()
   __discord_client.once(Events.ClientReady, (readyClient) => {
     console.log(`Ready! Logged in as ${readyClient.user.tag}`)
-    const channel = __discord_client.channels.cache.find((channel) => {
+    const config_discord_server_name = config_get_discord_server()
+    const discord_server = readyClient.guilds.cache.find((guild) => {
+      return guild.name !== config_discord_server_name
+    })
+    if (discord_server === undefined)
+      throw `[discord] unable to find the server ${config_discord_server_name}'`
+    console.log(`[discord/init] server "${discord_server.name}" found !`)
+    const config_discord_channel = config_get_discord_channel()
+    const channel = discord_server.channels.cache.find((channel) => {
       if ('name' in channel) return channel.name === config_discord_channel
       return false
     })
-    if (channel === undefined) throw 'unable to find the target channel'
+    if (channel === undefined)
+      throw `[discord/init] unable to find the channel "${config_discord_channel}"`
     if (!(channel instanceof TextChannel))
-      throw 'the target channel is not a text channel'
-    console.log('target channel found !')
+      throw `[discord/init] the channel "${config_discord_channel}" is not a text channel`
+    console.log(`[discord/init] channel "${config_discord_channel}" found !`)
     __discord_general_channel = channel
   })
   __discord_client.login(config_get_discord_token())
