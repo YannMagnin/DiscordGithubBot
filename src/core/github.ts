@@ -2,7 +2,11 @@
 // core.github  - github abstraction
 //---
 
+import { EmbedBuilder } from 'discord.js'
+
 import { config_get_raw } from './config'
+import { discord_notification_send } from './discord'
+import { watcher_export } from './watcher'
 
 // private
 
@@ -132,6 +136,7 @@ export class GithubCommit {
   verified: boolean = false
   signed: boolean = false
   date: string = ''
+  timestamp: number = 667
 }
 
 /**
@@ -141,9 +146,65 @@ export class GithubProject {
   repo_uri: string
   last_commit_scan_timestamp: number
 
+  // magics
+
   constructor(uri: string, last_commit_scan_timestamp: number) {
     this.repo_uri = uri
     this.last_commit_scan_timestamp = last_commit_scan_timestamp
+  }
+
+  // private method
+
+  /**
+   * __convert_commits_info() - convert received commit info into internal form
+   */
+  __convert_commits_info(project: string, commit: any): GithubCommit {
+    const gcommit = new GithubCommit()
+    gcommit.author = commit.commit.author.name
+    gcommit.author_icon = commit.author.avatar_url
+    gcommit.body = commit.commit.message
+    gcommit.branch = 'master'
+    gcommit.project = project
+    gcommit.sha = commit.sha
+    gcommit.signed = commit.commit.verification.signature !== ''
+    gcommit.verified = commit.commit.verification.verified
+    gcommit.url = commit.commit.url
+    gcommit.date = commit.commit.author.date
+      .substring(0, 19)
+      .replaceAll('-', '/')
+      .replaceAll('T', ' ')
+    gcommit.timestamp = Date.parse(commit.commit.author.date)
+    return gcommit
+  }
+
+  /**
+   * __send_new_commit_notification() - send new commit notification
+   * @param commit - github commit information
+   */
+  __send_new_commit_notification(commits: GithubCommit[]) {
+    const embeds: EmbedBuilder[] = []
+    for (const commit of commits) {
+      const verified = commit.verified ? 'verified' : 'unverified'
+      const signed = commit.signed ? 'signed' : 'unsigned'
+      embeds.push(
+        new EmbedBuilder()
+          .setColor(0x0099ff)
+          .setTitle(`[${commit.project}] 1 new commit`)
+          .setAuthor({
+            name: commit.author,
+            iconURL: commit.author_icon,
+            url: commit.url,
+          })
+          .setDescription(commit.body)
+          .setURL(commit.url)
+          .setFooter({
+            text: `${commit.sha.substring(0, 7)} • ${verified} • ${signed} • ${
+              commit.date
+            }`,
+          })
+      )
+    }
+    discord_notification_send(embeds)
   }
 
   // public method
@@ -152,38 +213,32 @@ export class GithubProject {
    * check_new_commits() - check new commit since a specific date
    * @returns - a list of all new commits information
    */
-  async check_new_commits(): Promise<GithubCommit[]> {
+  async check_new_commits(): Promise<number> {
     console.log(`request commit scanning for '${this.repo_uri}'`)
     const commits = await __GithubAPI.commit_scan(
       this.repo_uri,
       this.last_commit_scan_timestamp
     )
     console.log(`received commits = ${commits}`)
-    if (commits.length === 0) return []
+    if (commits.length === 0) return 0
     const gcommits: GithubCommit[] = []
     for (const commit of commits) {
       console.log(`-- commit = ${commit}`)
       const query = __GITHUB_URL_REGEX.exec(commit.commit.url)?.groups
       if (query === undefined)
         throw `unsupported github URL '${commit.commit.url}'`
-      const gcommit = new GithubCommit()
-      gcommit.author = commit.commit.author.name
-      gcommit.author_icon = commit.author.avatar_url
-      gcommit.body = commit.commit.message
-      gcommit.branch = 'master'
-      gcommit.project = `${query.owner}/${query.project}`
-      gcommit.sha = commit.sha
-      gcommit.signed = commit.commit.verification.signature !== ''
-      gcommit.verified = commit.commit.verification.verified
-      gcommit.url = commit.commit.url
-      gcommit.date = commit.commit.author.date
-        .substring(0, 19)
-        .replaceAll('-', '/')
-        .replaceAll('T', ' ')
-      gcommits.push(gcommit)
+      gcommits.push(
+        this.__convert_commits_info(`${query.owner}/${query.project}`, commit)
+      )
     }
+    gcommits.sort((a: GithubCommit, b: GithubCommit) => {
+      if (a.timestamp < b.timestamp) return -1
+      if (a.timestamp > b.timestamp) return 1
+      return 0
+    })
     this.last_commit_scan_timestamp = Date.now()
-    return gcommits
+    this.__send_new_commit_notification(gcommits)
+    return gcommits.length
   }
 }
 

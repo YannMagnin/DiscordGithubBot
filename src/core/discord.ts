@@ -78,37 +78,6 @@ export function discord_init() {
 }
 
 /**
- * discord_notification_commit() - send new commit notification
- * @param commit - github commit information
- */
-export async function discord_notification_commits(commits: GithubCommit[]) {
-  if (commits.length == 0) return
-  const embeds: EmbedBuilder[] = []
-  for (const commit of commits) {
-    const verified = commit.verified ? 'verified' : 'unverified'
-    const signed = commit.signed ? 'signed' : 'unsigned'
-    embeds.push(
-      new EmbedBuilder()
-        .setColor(0x0099ff)
-        .setTitle(`[${commit.project}] 1 new commit`)
-        .setAuthor({
-          name: commit.author,
-          iconURL: commit.author_icon,
-          url: commit.url,
-        })
-        .setDescription(commit.body)
-        .setURL(commit.url)
-        .setFooter({
-          text: `${commit.sha.substring(0, 7)} • ${verified} • ${signed} • ${
-            commit.date
-          }`,
-        })
-    )
-  }
-  ;(await __discord_get_channel()).send({ embeds: embeds })
-}
-
-/**
  * discord_notification_send() - send embeds messages
  * @param embeds - discord.js embeds list
  */

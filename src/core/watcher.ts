@@ -3,10 +3,7 @@
 //---
 
 import { EmbedBuilder } from 'discord.js'
-import {
-  discord_notification_commits,
-  discord_notification_send,
-} from './discord'
+import { discord_notification_send } from './discord'
 import { github_generate_url, GithubProject } from './github'
 import { config_get_prefix } from './config'
 
@@ -48,28 +45,33 @@ class __WatcherItem {
       throw `unable to start the watcher '${this.name}': timer already used`
     this._timer = setInterval(async () => {
       console.log(`watcher need a refresh for "${this.name}"`)
-      const commits = await this.project.check_new_commits()
-      if (commits.length > 0) discord_notification_commits(commits)
+      this.project.check_new_commits().then((has_new_commits) => {
+        if (has_new_commits) watcher_export()
+      })
     }, this.scan_interval_min * 60 * 1000)
   }
 
   /**
-   * stop() - stop the watcher and export information
+   * export() - export watcher information
    * @returns - watcher information
    */
-  stop() {
-    var status = 'stopped'
-    if (this._timer !== null) {
-      status = 'running'
-      clearInterval(this._timer)
-      this._timer = null
-    }
+  export(): any {
     return {
       api: 'github',
       project: this.project.repo_uri,
       scan_interval_min: this.scan_interval_min,
       last_commit_scan_timestamp: this.project.last_commit_scan_timestamp,
-      status: status,
+      status: this._timer !== null ? 'running' : 'stopped',
+    }
+  }
+
+  /**
+   * stop() - stop the watcher and export information
+   */
+  stop() {
+    if (this._timer !== null) {
+      clearInterval(this._timer)
+      this._timer = null
     }
   }
 }
@@ -185,18 +187,30 @@ export function watcher_add(project: any) {
 }
 
 /**
- * watcher_unint() - stop all watcher and export information
+ * watcher_export() - export current watcher snapshot
  */
-export function watcher_unint() {
+export function watcher_export(stop: boolean = false) {
+  console.log('[watcher] updating lock file')
   const config_prefix = config_get_prefix()
   const watcher_exports: { [id: string]: any } = {}
   for (const watcher in __watcher_dict) {
-    console.log(`[+] stopping watcher ${watcher}`)
-    watcher_exports[watcher] = __watcher_dict[watcher].stop()
+    console.log(`[+] exporting watcher ${watcher}`)
+    watcher_exports[watcher] = __watcher_dict[watcher].export()
+    if (stop) {
+      console.log(`[+] stopping watcher ${watcher}`)
+      __watcher_dict[watcher].stop()
+    }
   }
   if (Object.keys(watcher_exports).length === 0) return
   Bun.write(
     `${config_prefix}/watchers.lock.json`,
     JSON.stringify(watcher_exports)
   )
+}
+
+/**
+ * watcher_unint() - stop all watcher and export information
+ */
+export function watcher_unint() {
+  watcher_export(true)
 }
