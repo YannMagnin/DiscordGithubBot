@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: mixed-line-ending
+      - id: end-of-file-fixer
+  - repo: local
+    hooks:
+      - id: check-prettier
+        name: check-prettier
+        entry: bunx prettier --check --no-color src
+        language: system
+        pass_filenames: false
+
+      - id: check-eslint
+        name: check-eslint
+        entry: bunx eslint --no-color
+        language: system
+        pass_filenames: false

@@ -2,17 +2,51 @@
 // core.watcher - timer abstraction
 //---
 
-import { EmbedBuilder } from 'discord.js'
-import { discord_notification_send } from './discord'
+import { discord_notification_send, DiscordEmbedBuilder } from './discord'
 import { github_generate_url, GithubProject } from './github'
 import { config_get_prefix } from './config'
 
+//---
 // Internals
+//---
 
 /**
  * __watcher_dict - internal watcher dictionary
  */
-var __watcher_dict: { [id: string]: __WatcherItem } = {}
+const __watcher_dict: { [id: string]: __WatcherItem } = {}
+
+/**
+ * __WatcherExport - internal watcher export information
+ */
+interface __WatcherExport {
+  api: string
+  project: string
+  scan_interval_min: number
+  last_commit_scan_timestamp: number
+  status: 'running' | 'stopped'
+}
+
+/**
+ * ProjectConfig - loaded project configuration
+ *
+ * Note:
+ * force indicate the `key` stuff, otherwise we cannot access to any of the
+ * elements of an interface
+ */
+interface __WatcherProjectConfig {
+  [key: string]: number | undefined | string
+  project: string
+  scan_interval_min: number
+  last_commit_scan_timestamp?: number
+}
+
+/**
+ * __WatcherWarningReport - internal warning report (loading process)
+ */
+interface __WatcherWarningReport {
+  new_watcher: __WatcherProjectConfig[]
+  lock_diff: { [project_name: string]: { [property: string]: string[] } }
+}
 
 /**
  * __WatcherItem - watcher item
@@ -43,19 +77,22 @@ class __WatcherItem {
   start() {
     if (this._timer !== null)
       throw `unable to start the watcher '${this.name}': timer already used`
-    this._timer = setInterval(async () => {
-      console.log(`watcher need a refresh for "${this.name}"`)
-      this.project.check_new_commits().then((has_new_commits) => {
-        if (has_new_commits) watcher_export()
-      })
-    }, this.scan_interval_min * 60 * 1000)
+    this._timer = setInterval(
+      async () => {
+        console.log(`watcher need a refresh for "${this.name}"`)
+        this.project.check_new_commits().then((has_new_commits) => {
+          if (has_new_commits) watcher_export()
+        })
+      },
+      this.scan_interval_min * 60 * 1000
+    )
   }
 
   /**
    * export() - export watcher information
    * @returns - watcher information
    */
-  export(): any {
+  export(): __WatcherExport {
     return {
       api: 'github',
       project: this.project.repo_uri,
@@ -79,13 +116,14 @@ class __WatcherItem {
 /**
  * __watcher_emit_warning() - generate the warning message
  *
- * Note: Discord poorly handle nested list and require
+ * Note: Discord poorly handle nested list and require full 4-space indent for
+ * the firt item then only 3-spaces...otherwise it will nest all other items
  *
  * @param warnings - internal warning object
  */
-function __watcher_emit_warning(warnings: any) {
-  var new_watchers = ''
-  var workarond = '    '
+function __watcher_emit_warning(warnings: __WatcherWarningReport) {
+  let new_watchers = ''
+  let workarond = '    '
   for (const watcher of warnings.new_watcher) {
     const project_url = github_generate_url(watcher.project)
     new_watchers += `- **[${watcher.project}](${project_url})**\n`
@@ -95,8 +133,8 @@ function __watcher_emit_warning(warnings: any) {
       workarond = '   '
     }
   }
-  var diff_watchers = ''
-  var workarond = '    '
+  let diff_watchers = ''
+  workarond = '    '
   for (const watcher in warnings.lock_diff) {
     const project_url = github_generate_url(watcher)
     diff_watchers += `- **[${watcher}](${project_url})**\n`
@@ -109,7 +147,7 @@ function __watcher_emit_warning(warnings: any) {
   }
   if (new_watchers === '' && diff_watchers === '') return
   console.log('-- lock file updated')
-  const embed = new EmbedBuilder()
+  const embed = new DiscordEmbedBuilder()
     .setColor(0xc75820)
     .setTitle('Configuration update')
     .setDescription('Update the configuration lock file')
@@ -121,7 +159,29 @@ function __watcher_emit_warning(warnings: any) {
   discord_notification_send([embed])
 }
 
+/**
+ * watcher_add() - add a new watcher
+ * @param project project to watch
+ */
+function __watcher_add(project: __WatcherProjectConfig) {
+  if (project.project in __watcher_dict)
+    throw `unable to add the new watcher "${project.project}": already registered`
+  let last_commit_scan_timestamp = project.last_commit_scan_timestamp
+  if (last_commit_scan_timestamp === undefined) {
+    console.log('-- use the current date as `last_commit_scan_timestamp`')
+    last_commit_scan_timestamp = Date.now()
+  }
+  __watcher_dict[project.project] = new __WatcherItem(
+    project.project,
+    project.scan_interval_min,
+    new GithubProject(project.project, last_commit_scan_timestamp)
+  )
+  __watcher_dict[project.project].start()
+}
+
+//---
 // Public
+//---
 
 /**
  * watcher_init() - load the configuration file and start all watchers
@@ -129,7 +189,7 @@ function __watcher_emit_warning(warnings: any) {
  */
 export async function watcher_init() {
   const config_prefix = config_get_prefix()
-  const warning_report: { new_watcher: any[]; lock_diff: any } = {
+  const warning_report: __WatcherWarningReport = {
     new_watcher: [],
     lock_diff: {},
   }
@@ -142,7 +202,7 @@ export async function watcher_init() {
   for (const project of config_info.watchers) {
     console.log(`[+] register a new github watcher : ${project.project}`)
     if (!(project.project in lock_info)) {
-      watcher_add(project)
+      __watcher_add(project)
       warning_report.new_watcher.push(project)
       continue
     }
@@ -159,31 +219,9 @@ export async function watcher_init() {
         lock_project[property] = project[property]
       }
     }
-    watcher_add(lock_project)
+    __watcher_add(lock_project)
   }
   __watcher_emit_warning(warning_report)
-}
-
-/**
- * watcher_add() - add a new watcher
- * @param name watcher name (used to perform operation on the watcher)
- * @param scan_interval_sec scanning interval in seconds
- * @param project github project to scan
- */
-export function watcher_add(project: any) {
-  if (project.project in __watcher_dict)
-    throw `unable to add the new watcher "${project.project}": already registered`
-  var last_commit_scan_timestamp = project.last_commit_scan_timestamp
-  if (last_commit_scan_timestamp === undefined) {
-    console.log('-- use the current date as `last_commit_scan_timestamp`')
-    last_commit_scan_timestamp = Date.now()
-  }
-  __watcher_dict[project.project] = new __WatcherItem(
-    project.project,
-    project.scan_interval_min,
-    new GithubProject(project.project, last_commit_scan_timestamp)
-  )
-  __watcher_dict[project.project].start()
 }
 
 /**
@@ -192,7 +230,7 @@ export function watcher_add(project: any) {
 export function watcher_export(stop: boolean = false) {
   console.log('[watcher] updating lock file')
   const config_prefix = config_get_prefix()
-  const watcher_exports: { [id: string]: any } = {}
+  const watcher_exports: { [id: string]: __WatcherExport } = {}
   for (const watcher in __watcher_dict) {
     console.log(`[+] exporting watcher ${watcher}`)
     watcher_exports[watcher] = __watcher_dict[watcher].export()

@@ -1,0 +1,26 @@
+name: 'Sanitize codebase'
+on: [push]
+jobs:
+  sanitize-codebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'checkout the codebase'
+        uses: actions/checkout@v4
+
+      - name: 'install bun.sh'
+        uses: oven-sh/setup-bun@v2
+
+      - name: 'define a cache for the virtual environment'
+        uses: actions/cache@v4
+        with:
+          path: ./node_modules
+          key: node_module-${{ hashFiles('bun.lockb') }}
+
+      - name: 'install the project'
+        run: bun install
+
+      - name: 'check prettier'
+        run: bunx prettier --check --no-color src
+
+      - name: 'check eslint'
+        run: bunx eslint

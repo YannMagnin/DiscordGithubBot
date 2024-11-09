@@ -9,7 +9,6 @@ import {
   TextChannel,
   EmbedBuilder,
 } from 'discord.js'
-import type { GithubCommit } from './github'
 import { sleep } from 'bun'
 import { config_get_raw } from './config'
 
@@ -17,7 +16,7 @@ import { config_get_raw } from './config'
 
 // todo : maybe use Promise instead of undefined ?
 const __discord_client = new Client({ intents: [GatewayIntentBits.Guilds] })
-var __discord_general_channel: TextChannel | undefined = undefined
+let __discord_general_channel: TextChannel | undefined = undefined
 
 /**
  * __discord_get_channel() - workarond to wait the Discord channel
@@ -37,6 +36,11 @@ async function __discord_get_channel(): Promise<TextChannel> {
 }
 
 // public
+
+/**
+ * DiscordEmbedBuilder - discord.js class alias
+ */
+export class DiscordEmbedBuilder extends EmbedBuilder {}
 
 /**
  * discord_init() - initialise the discord bot
@@ -81,7 +85,7 @@ export function discord_init() {
  * discord_notification_send() - send embeds messages
  * @param embeds - discord.js embeds list
  */
-export async function discord_notification_send(embeds: EmbedBuilder[]) {
+export async function discord_notification_send(embeds: DiscordEmbedBuilder[]) {
   ;(await __discord_get_channel()).send({ embeds: embeds })
 }
 

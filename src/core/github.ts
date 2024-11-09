@@ -2,11 +2,12 @@
 // core.github  - github abstraction
 //---
 
-import { EmbedBuilder } from 'discord.js'
+// Workaround to allow temporary the use of `any` type to allow raw API
+// manipulation without typing hell
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 
 import { config_get_raw } from './config'
-import { discord_notification_send } from './discord'
-import { watcher_export } from './watcher'
+import { discord_notification_send, DiscordEmbedBuilder } from './discord'
 
 // private
 
@@ -125,18 +126,18 @@ class __GithubAPI {
 /**
  * GithubCommit - Github commit dataclass
  */
-export class GithubCommit {
-  sha: string = ''
-  author: string = ''
-  author_icon: string = ''
-  project: string = ''
-  url: string = ''
-  body: string = ''
-  branch: string = ''
-  verified: boolean = false
-  signed: boolean = false
-  date: string = ''
-  timestamp: number = 667
+export interface GithubCommit {
+  sha: string
+  author: string
+  author_icon: string
+  project: string
+  url: string
+  body: string
+  branch: string
+  verified: boolean
+  signed: boolean
+  date: string
+  timestamp: number
 }
 
 /**
@@ -159,21 +160,23 @@ export class GithubProject {
    * __convert_commits_info() - convert received commit info into internal form
    */
   __convert_commits_info(project: string, commit: any): GithubCommit {
-    const gcommit = new GithubCommit()
-    gcommit.author = commit.commit.author.name
-    gcommit.author_icon = commit.author.avatar_url
-    gcommit.body = commit.commit.message
-    gcommit.branch = 'master'
-    gcommit.project = project
-    gcommit.sha = commit.sha
-    gcommit.signed = commit.commit.verification.signature !== ''
-    gcommit.verified = commit.commit.verification.verified
-    gcommit.url = commit.commit.url
-    gcommit.date = commit.commit.author.date
+    const gcommit = {
+      author: commit.commit.author.name,
+      author_icon: commit.author.avatar_url,
+      body: commit.commit.message,
+      branch: 'master',
+      project: project,
+      sha: commit.sha,
+      signed: commit.commit.verification.signature !== '',
+      verified: commit.commit.verification.verified,
+      url: commit.commit.url,
+      date: commit.commit.author.date,
+      timestamp: Date.parse(commit.commit.author.date),
+    }
+    gcommit.date = gcommit.date
       .substring(0, 19)
       .replaceAll('-', '/')
       .replaceAll('T', ' ')
-    gcommit.timestamp = Date.parse(commit.commit.author.date)
     return gcommit
   }
 
@@ -182,12 +185,12 @@ export class GithubProject {
    * @param commit - github commit information
    */
   __send_new_commit_notification(commits: GithubCommit[]) {
-    const embeds: EmbedBuilder[] = []
+    const embeds: DiscordEmbedBuilder[] = []
     for (const commit of commits) {
       const verified = commit.verified ? 'verified' : 'unverified'
       const signed = commit.signed ? 'signed' : 'unsigned'
       embeds.push(
-        new EmbedBuilder()
+        new DiscordEmbedBuilder()
           .setColor(0x0099ff)
           .setTitle(`[${commit.project}] 1 new commit`)
           .setAuthor({

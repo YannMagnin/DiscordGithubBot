@@ -2,6 +2,10 @@
 // core.config  - configuration
 //---
 
+// allow explicit `any` type to avoid too many type declaration during the
+// "per-module" (github, watchers, ...) manipulation
+/* eslint-disable  @typescript-eslint/no-explicit-any */
+
 import { existsSync, readFileSync } from 'node:fs'
 import { parse as toml_parse } from '@iarna/toml'
 
@@ -10,7 +14,7 @@ import { parse as toml_parse } from '@iarna/toml'
 /**
  * __CONFIG_INFO - loaded configuration information
  */
-var __CONFIG_INFO: { prefix: string; raw: any }
+let __CONFIG_INFO: { prefix: string; raw: any }
 
 // Public
 
@@ -18,7 +22,7 @@ var __CONFIG_INFO: { prefix: string; raw: any }
  * config_init() - basic pseudo CLI handling
  */
 export function config_init() {
-  var config_prefix: string | undefined = undefined
+  let config_prefix: string | undefined = undefined
   for (const arg of Bun.argv.slice(2)) {
     if (arg === '--help') {
       console.log(
@@ -33,9 +37,10 @@ export function config_init() {
     if (!existsSync(arg)) throw `config prefix provided does not exits`
     if (!existsSync(`${arg}/config.toml`))
       throw `missing the \`configuration.toml\` file in the provided prefix`
-    const config: any = toml_parse(
+    const config = toml_parse(
       readFileSync(`${arg}/config.toml`, { encoding: 'utf8' })
     )
+    config_prefix = arg
     __CONFIG_INFO = {
       prefix: arg,
       raw: config,

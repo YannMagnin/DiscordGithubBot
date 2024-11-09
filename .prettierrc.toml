@@ -1,5 +1,8 @@
+# I want to use the `max_line_length` option that is documented in the Prettier
+# documentation (https://prettier.io/docs/en/options.html#print-width). BUT,
+# this configuration CANNOT reside here (why?), but in the `.editorconfig` file
+# So, also check the `.editorconfig` file too
 trailingComma = "es5"
 tabWidth = 2
 semi = false
 singleQuote = true
-max_line_length = 80
